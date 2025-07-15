@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 	"unsafe"
 )
 
@@ -178,6 +179,11 @@ func TestCopy_Struct_Unexported(t *testing.T) {
 		t.Errorf("Should have copied exported field: expected Exported to be %v, got %v", src.Exported, dst.Exported)
 	}
 
+}
+
+func TestCopy_Struct_Time(t *testing.T) {
+	val := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	doCopyAndCheck(t, val, false)
 }
 
 func TestCopy_Struct_Error(t *testing.T) {

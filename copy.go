@@ -3,6 +3,7 @@ package deep
 import (
 	"fmt"
 	"reflect"
+	"time"
 )
 
 // Copier is an interface that types can implement to provide their own
@@ -256,6 +257,12 @@ func recursiveCopySlice(v reflect.Value, pointers pointersMap,
 func recursiveCopyStruct(v reflect.Value, pointers pointersMap,
 	skipUnsupported bool) (reflect.Value, error) {
 	dst := reflect.New(v.Type()).Elem()
+
+	t, ok := v.Interface().(time.Time)
+	if ok {
+		dst.Set(reflect.ValueOf(t))
+		return dst, nil
+	}
 
 	for i := 0; i < v.NumField(); i++ {
 		elem := v.Field(i)
