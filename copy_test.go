@@ -151,11 +151,33 @@ func TestCopy_Struct_Loop(t *testing.T) {
 
 func TestCopy_Struct_Unexported(t *testing.T) {
 	type S struct {
-		a int
-		b string
+		a        int
+		b        string
+		Exported bool
 	}
 
-	doCopyAndCheck(t, S{42, "42"}, false)
+	src := S{a: 1, b: "2", Exported: true}
+
+	t.Helper()
+
+	dst, err := Copy(src)
+	if err != nil {
+		t.Errorf("Copy failed: %v", err)
+		return
+	}
+
+	if dst.a != 0 {
+		t.Errorf("Should not have copied unexported field: expected a to be 0, got %d", dst.a)
+	}
+
+	if dst.b != "" {
+		t.Errorf("Should not have copied unexported field: expected b to be '', got %s", dst.b)
+	}
+
+	if dst.Exported != src.Exported {
+		t.Errorf("Should have copied exported field: expected Exported to be %v, got %v", src.Exported, dst.Exported)
+	}
+
 }
 
 func TestCopy_Struct_Error(t *testing.T) {

@@ -260,12 +260,12 @@ func recursiveCopyStruct(v reflect.Value, pointers pointersMap,
 	for i := 0; i < v.NumField(); i++ {
 		elem := v.Field(i)
 
-		// If the field is unexported, we need to disable read-only mode. If it
-		// is exported, doing this changes nothing so we just do it. We need to
-		// do this here not because we are writting to the field (this is the
-		// source), but because Interface() does not work if the read-only bits
-		// are set.
-		disableRO(&elem)
+		// The Type's StructField for a given field is checked to see if StructField.PkgPath
+		// is set to determine if the field is exported or not because CanSet() returns false
+		// for settable fields
+		if v.Type().Field(i).PkgPath != "" {
+			continue
+		}
 
 		elemDst, err := recursiveCopy(elem, pointers,
 			skipUnsupported)
@@ -274,10 +274,6 @@ func recursiveCopyStruct(v reflect.Value, pointers pointersMap,
 		}
 
 		dstField := dst.Field(i)
-
-		// If the field is unexported, we need to disable read-only mode so we
-		// can actually write to it.
-		disableRO(&dstField)
 
 		dstField.Set(elemDst)
 	}
