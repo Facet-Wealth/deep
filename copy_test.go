@@ -163,7 +163,7 @@ func TestCopy_Struct_Unexported(t *testing.T) {
 
 	dst, err := Copy(src)
 	if err != nil {
-		t.Errorf("CopyDeep failed: %v", err)
+		t.Errorf("DeepCopy failed: %v", err)
 		return
 	}
 
@@ -307,12 +307,12 @@ func doCopyAndCheck[T any](t *testing.T, src T, expectError bool) {
 	dst, err := Copy(src)
 	if err != nil {
 		if !expectError {
-			t.Errorf("CopyDeep failed: %v", err)
+			t.Errorf("DeepCopy failed: %v", err)
 		}
 		return
 	}
 	if !reflect.DeepEqual(dst, src) {
-		t.Errorf("CopyDeep failed: expected %v, got %v", src, dst)
+		t.Errorf("DeepCopy failed: expected %v, got %v", src, dst)
 	}
 }
 
@@ -396,7 +396,7 @@ var (
 	customPtrTypeCopyCalled bool
 )
 
-func (ct CustomTypeForCopier) CopyDeep() (CustomTypeForCopier, error) {
+func (ct CustomTypeForCopier) DeepCopy() (CustomTypeForCopier, error) {
 	customTypeCopyCalled = true
 	if ct.F != nil && ct.Value == -1 { // Special case to return error
 		customTypeCopyErrored = true
@@ -414,7 +414,7 @@ func TestCopy_CustomCopier_ValueReceiver(t *testing.T) {
 	dst, err := Copy(src)
 
 	if err != nil {
-		t.Fatalf("CopyDeep failed for CustomCopier: %v", err)
+		t.Fatalf("DeepCopy failed for CustomCopier: %v", err)
 	}
 	if !customTypeCopyCalled {
 		t.Errorf("Custom Copier method was not called")
@@ -457,11 +457,11 @@ type CustomPtrTypeForCopier struct {
 	Value int
 }
 
-func (cpt *CustomPtrTypeForCopier) CopyDeep() (*CustomPtrTypeForCopier, error) {
+func (cpt *CustomPtrTypeForCopier) DeepCopy() (*CustomPtrTypeForCopier, error) {
 	customPtrTypeCopyCalled = true
 	if cpt == nil {
-		// This case should ideally not be hit if the main CopyDeep function guards against it.
-		return nil, fmt.Errorf("custom CopyDeep() called on nil CustomPtrTypeForCopier receiver")
+		// This case should ideally not be hit if the main DeepCopy function guards against it.
+		return nil, fmt.Errorf("custom DeepCopy() called on nil CustomPtrTypeForCopier receiver")
 	}
 	return &CustomPtrTypeForCopier{Value: cpt.Value * 3}, nil
 }
@@ -473,7 +473,7 @@ func TestCopy_CustomCopier_PointerReceiver(t *testing.T) {
 	dst, err := Copy(src)
 
 	if err != nil {
-		t.Fatalf("CopyDeep failed for CustomCopier with pointer receiver: %v", err)
+		t.Fatalf("DeepCopy failed for CustomCopier with pointer receiver: %v", err)
 	}
 	if !customPtrTypeCopyCalled {
 		t.Errorf("Custom Copier method (ptr receiver) was not called")
@@ -486,12 +486,12 @@ func TestCopy_CustomCopier_PointerReceiver(t *testing.T) {
 	}
 
 	// Test that a nil pointer of a type that implements Copier still results in a nil copy
-	// and does not call the custom CopyDeep method.
+	// and does not call the custom DeepCopy method.
 	customPtrTypeCopyCalled = false
 	var nilSrc *CustomPtrTypeForCopier
 	dstNil, errNil := Copy(nilSrc)
 	if errNil != nil {
-		t.Fatalf("CopyDeep failed for nil CustomPtrTypeForCopier: %v", errNil)
+		t.Fatalf("DeepCopy failed for nil CustomPtrTypeForCopier: %v", errNil)
 	}
 	if customPtrTypeCopyCalled {
 		t.Errorf("Custom Copier method (ptr receiver) was called for nil input, but should not have been")

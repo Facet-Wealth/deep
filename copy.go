@@ -10,7 +10,7 @@ import (
 // custom deep copy logic. The type T in Copy() (T, error) must be the
 // same concrete type as the receiver that implements this interface.
 type Copier[T any] interface {
-	CopyDeep() (T, error)
+	DeepCopy() (T, error)
 }
 
 // Copy creates a deep copy of src. It returns the copy and a nil error in case
@@ -59,7 +59,7 @@ func copyInternal[T any](src T, skipUnsupported bool) (T, error) {
 	// - A value type (struct, int, etc.)
 	// - A non-nil pointer type
 	// - A non-nil interface type
-	// This logic avoids trying to call CopyDeep() on a nil receiver if T itself
+	// This logic avoids trying to call DeepCopy() on a nil receiver if T itself
 	// is a pointer or interface type that is nil.
 	attemptCopier := false
 	srcKind := v.Kind()
@@ -79,7 +79,7 @@ func copyInternal[T any](src T, skipUnsupported bool) (T, error) {
 		// non-allocating for src's underlying data.
 		if srcKind == reflect.Interface || srcKind == reflect.Ptr {
 			if copier, ok := any(src).(Copier[T]); ok {
-				return copier.CopyDeep()
+				return copier.DeepCopy()
 			}
 		} else {
 			// T is a value type (e.g. struct, array, basic type).
@@ -90,7 +90,7 @@ func copyInternal[T any](src T, skipUnsupported bool) (T, error) {
 				// T implements Copier[T]. Now the type assertion (and potential allocation)
 				// is justified as we expect to call the custom method.
 				if copier, ok := any(src).(Copier[T]); ok {
-					return copier.CopyDeep()
+					return copier.DeepCopy()
 				}
 			}
 		}
