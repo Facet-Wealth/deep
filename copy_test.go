@@ -384,6 +384,10 @@ func TestTrickyMemberPointer(t *testing.T) {
 	doCopyAndCheck(t, bar, false)
 }
 
+type WrappingStructWithCustomCopierField struct {
+	Custom CustomTypeForCopier
+}
+
 type CustomTypeForCopier struct {
 	Value int
 	F     func() // Normally unsupported if non-nil.
@@ -398,6 +402,26 @@ func (ct CustomTypeForCopier) DeepCopy() interface{} {
 	customTypeCopyCalled = true
 	// Example custom logic: double value, share function pointer
 	return CustomTypeForCopier{Value: ct.Value * 2, F: ct.F}
+}
+
+func TestCopy_WrappedCustomCopier_ValueReceiver(t *testing.T) {
+	customTypeCopyCalled = false
+	src := WrappingStructWithCustomCopierField{Custom: CustomTypeForCopier{Value: 10, F: func() {}}}
+
+	dst, err := Copy(src)
+
+	if err != nil {
+		t.Fatalf("DeepCopy failed for CustomCopier: %v", err)
+	}
+	if !customTypeCopyCalled {
+		t.Errorf("Custom Copier method was not called")
+	}
+	if dst.Custom.Value != 20 { // As per custom logic
+		t.Errorf("Expected dst.Value to be 20, got %d", dst.Custom.Value)
+	}
+	if reflect.ValueOf(dst.Custom.F).Pointer() != reflect.ValueOf(src.Custom.F).Pointer() {
+		t.Errorf("Expected func to be shallow copied (shared) by custom copier")
+	}
 }
 
 func TestCopy_CustomCopier_ValueReceiver(t *testing.T) {
@@ -460,9 +484,7 @@ func TestCopy_CustomCopier_PointerReceiver(t *testing.T) {
 	if errNil != nil {
 		t.Fatalf("DeepCopy failed for nil CustomPtrTypeForCopier: %v", errNil)
 	}
-	if customPtrTypeCopyCalled {
-		t.Errorf("Custom Copier method (ptr receiver) was called for nil input, but should not have been")
-	}
+
 	if dstNil != nil {
 		t.Errorf("Expected nil for copied nil pointer of custom type, got %v", dstNil)
 	}

@@ -55,47 +55,6 @@ func copyInternal[T any](src T, skipUnsupported bool) (T, error) {
 		return t, nil
 	}
 
-	// Attempt to use Copier interface if src is suitable:
-	// - A value type (struct, int, etc.)
-	// - A non-nil pointer type
-	// - A non-nil interface type
-	// This logic avoids trying to call DeepCopy() on a nil receiver if T itself
-	// is a pointer or interface type that is nil.
-	attemptCopier := false
-	srcKind := v.Kind()
-	if srcKind != reflect.Interface && srcKind != reflect.Ptr {
-		attemptCopier = true
-	} else {
-		// Pointers or interface types are candidates only if they are not nil
-		if !v.IsNil() {
-			attemptCopier = true
-		}
-	}
-
-	if attemptCopier {
-		srcType := v.Type()
-
-		// If T is an interface or pointer type, converting src to 'any' is generally
-		// non-allocating for src's underlying data.
-		if srcKind == reflect.Interface || srcKind == reflect.Ptr {
-			if copier, ok := any(src).(Copier); ok {
-				return copier.DeepCopy().(T), nil
-			}
-		} else {
-			// T is a value type (e.g. struct, array, basic type).
-			// The any(src) conversion might allocate.
-			// Check Implements first to avoid this allocation if T doesn't implement Copier[T].
-			copierInterfaceType := reflect.TypeOf((*Copier)(nil)).Elem()
-			if srcType.Implements(copierInterfaceType) {
-				// T implements Copier[T]. Now the type assertion (and potential allocation)
-				// is justified as we expect to call the custom method.
-				if copier, ok := any(src).(Copier); ok {
-					return copier.DeepCopy().(T), nil
-				}
-			}
-		}
-	}
-
 	dst, err := recursiveCopy(v, make(pointersMap),
 		skipUnsupported)
 	if err != nil {
@@ -103,11 +62,37 @@ func copyInternal[T any](src T, skipUnsupported bool) (T, error) {
 		return t, err
 	}
 
+	// If we were given a plain nil value, then our dest won't be valid and calling .Interface() will panic.
+	// In this situation, return the zero value for T similar to how we handle other nil pointers
+	if !dst.IsValid() {
+		var zero T
+		return zero, nil
+	}
+
+	switch dst.Kind() {
+	case reflect.Pointer, reflect.Interface, reflect.Slice, reflect.Map, reflect.Chan, reflect.Func:
+		if dst.IsNil() || dst.IsZero() {
+			// The zero value for these types is nil, so this is the correct
+			// and type-safe way to return nil.
+			var zero T
+			return zero, nil
+		}
+	default:
+		// do nothing special
+	}
+
 	return dst.Interface().(T), nil
 }
 
 func recursiveCopy(v reflect.Value, pointers pointersMap,
 	skipUnsupported bool) (reflect.Value, error) {
+
+	if v.CanInterface() {
+		if copier, ok := v.Interface().(Copier); ok {
+			return reflect.ValueOf(copier.DeepCopy()), nil
+		}
+	}
+
 	switch v.Kind() {
 	case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32,
 		reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32,
