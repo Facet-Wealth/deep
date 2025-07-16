@@ -9,8 +9,8 @@ import (
 // Copier is an interface that types can implement to provide their own
 // custom deep copy logic. The type T in Copy() (T, error) must be the
 // same concrete type as the receiver that implements this interface.
-type Copier[T any] interface {
-	DeepCopy() (T, error)
+type Copier interface {
+	DeepCopy() interface{}
 }
 
 // Copy creates a deep copy of src. It returns the copy and a nil error in case
@@ -78,19 +78,19 @@ func copyInternal[T any](src T, skipUnsupported bool) (T, error) {
 		// If T is an interface or pointer type, converting src to 'any' is generally
 		// non-allocating for src's underlying data.
 		if srcKind == reflect.Interface || srcKind == reflect.Ptr {
-			if copier, ok := any(src).(Copier[T]); ok {
-				return copier.DeepCopy()
+			if copier, ok := any(src).(Copier); ok {
+				return copier.DeepCopy().(T), nil
 			}
 		} else {
 			// T is a value type (e.g. struct, array, basic type).
 			// The any(src) conversion might allocate.
 			// Check Implements first to avoid this allocation if T doesn't implement Copier[T].
-			copierInterfaceType := reflect.TypeOf((*Copier[T])(nil)).Elem()
+			copierInterfaceType := reflect.TypeOf((*Copier)(nil)).Elem()
 			if srcType.Implements(copierInterfaceType) {
 				// T implements Copier[T]. Now the type assertion (and potential allocation)
 				// is justified as we expect to call the custom method.
-				if copier, ok := any(src).(Copier[T]); ok {
-					return copier.DeepCopy()
+				if copier, ok := any(src).(Copier); ok {
+					return copier.DeepCopy().(T), nil
 				}
 			}
 		}

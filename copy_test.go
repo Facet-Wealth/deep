@@ -1,7 +1,6 @@
 package deep
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -392,23 +391,17 @@ type CustomTypeForCopier struct {
 
 var (
 	customTypeCopyCalled    bool
-	customTypeCopyErrored   bool
 	customPtrTypeCopyCalled bool
 )
 
-func (ct CustomTypeForCopier) DeepCopy() (CustomTypeForCopier, error) {
+func (ct CustomTypeForCopier) DeepCopy() interface{} {
 	customTypeCopyCalled = true
-	if ct.F != nil && ct.Value == -1 { // Special case to return error
-		customTypeCopyErrored = true
-		return CustomTypeForCopier{}, fmt.Errorf("custom copy error for F")
-	}
 	// Example custom logic: double value, share function pointer
-	return CustomTypeForCopier{Value: ct.Value * 2, F: ct.F}, nil
+	return CustomTypeForCopier{Value: ct.Value * 2, F: ct.F}
 }
 
 func TestCopy_CustomCopier_ValueReceiver(t *testing.T) {
 	customTypeCopyCalled = false
-	customTypeCopyErrored = false
 	src := CustomTypeForCopier{Value: 10, F: func() {}}
 
 	dst, err := Copy(src)
@@ -419,9 +412,6 @@ func TestCopy_CustomCopier_ValueReceiver(t *testing.T) {
 	if !customTypeCopyCalled {
 		t.Errorf("Custom Copier method was not called")
 	}
-	if customTypeCopyErrored {
-		t.Errorf("Custom Copier method unexpectedly errored")
-	}
 	if dst.Value != 20 { // As per custom logic
 		t.Errorf("Expected dst.Value to be 20, got %d", dst.Value)
 	}
@@ -430,40 +420,17 @@ func TestCopy_CustomCopier_ValueReceiver(t *testing.T) {
 	}
 }
 
-func TestCopy_CustomCopier_ErrorCase(t *testing.T) {
-	customTypeCopyCalled = false
-	customTypeCopyErrored = false
-	// Trigger error condition in custom copier
-	src := CustomTypeForCopier{Value: -1, F: func() {}}
-
-	_, err := Copy(src)
-
-	if err == nil {
-		t.Fatalf("Expected error from custom copier, got nil")
-	}
-	if !customTypeCopyCalled {
-		t.Errorf("Custom Copier method was not called (for error case)")
-	}
-	if !customTypeCopyErrored {
-		t.Errorf("Custom Copier method did not flag error internally")
-	}
-	expectedErrorMsg := "custom copy error for F"
-	if err.Error() != expectedErrorMsg {
-		t.Errorf("Expected error message '%s', got '%s'", expectedErrorMsg, err.Error())
-	}
-}
-
 type CustomPtrTypeForCopier struct {
 	Value int
 }
 
-func (cpt *CustomPtrTypeForCopier) DeepCopy() (*CustomPtrTypeForCopier, error) {
+func (cpt *CustomPtrTypeForCopier) DeepCopy() interface{} {
 	customPtrTypeCopyCalled = true
 	if cpt == nil {
 		// This case should ideally not be hit if the main DeepCopy function guards against it.
-		return nil, fmt.Errorf("custom DeepCopy() called on nil CustomPtrTypeForCopier receiver")
+		return nil
 	}
-	return &CustomPtrTypeForCopier{Value: cpt.Value * 3}, nil
+	return &CustomPtrTypeForCopier{Value: cpt.Value * 3}
 }
 
 func TestCopy_CustomCopier_PointerReceiver(t *testing.T) {
